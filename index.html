@@ -3,180 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Рисовалка со слоями</title>
+    <title>Мой рисовальный сайт</title>
     <style>
         body { margin: 0; background: #f0f0f0; font-family: sans-serif; }
-        #toolbar { background: #fff; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; }
-        #canvasContainer { position: relative; margin: 10px auto; width: fit-content; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        canvas { position: absolute; top: 0; left: 0; touch-action: none; }
-        #mainCanvas { position: relative; background: white; }
-        #layersPanel { background: #fff; padding: 10px; margin: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px; }
-        .layer-item { display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; background: #f9f9f9; border-radius: 4px; }
-        .layer-item.active { background: #e0efff; border: 2px solid #007bff; }
-        .layer-item input[type="checkbox"] { margin: 0; }
-        button.small { padding: 4px 8px; font-size: 12px; }
-        button, input { margin: 2px; }
+        #toolbar { background: #fff; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #canvas { display: block; background: white; margin: 10px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); touch-action: none; }
+        button, input { margin: 5px; padding: 8px; }
     </style>
 </head>
 <body>
-
     <div id="toolbar">
         <button id="pen">Карандаш</button>
         <button id="eraser">Ластик</button>
-        <button id="clear">Очистить слой</button>
+        <button id="clear">Очистить</button>
         <button id="addImage">Добавить изображение</button>
         <br>
         Цвет: <input type="color" id="colorPicker" value="#000000">
         Толщина: <input type="range" id="size" min="1" max="50" value="5">
+        <br>
         <button id="export">Экспорт в PNG</button>
     </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
 
-    <div style="display: flex; justify-content: center; flex-wrap: wrap;">
-        <div id="canvasContainer">
-            <canvas id="mainCanvas"></canvas>
-        </div>
-
-        <div id="layersPanel">
-            <h3>Слои</h3>
-            <button id="addLayer">+ Добавить слой</button>
-            <div id="layersList"></div>
-        </div>
-    </div>
-
+    <!-- Скрытый input для выбора файла -->
     <input type="file" id="imageInput" accept="image/*" style="display: none;">
 
     <script>
-        const mainCanvas = document.getElementById('mainCanvas');
-        const mainCtx = mainCanvas.getContext('2d');
-        const canvasContainer = document.getElementById('canvasContainer');
-        const layersList = document.getElementById('layersList');
-        const addLayerBtn = document.getElementById('addLayer');
-        const imageInput = document.getElementById('imageInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const sizeSlider = document.getElementById('size');
+        const penBtn = document.getElementById('pen');
+        const eraserBtn = document.getElementById('eraser');
+        const clearBtn = document.getElementById('clear');
+        const exportBtn = document.getElementById('export');
         const addImageBtn = document.getElementById('addImage');
+        const imageInput = document.getElementById('imageInput');
 
-        // Настройки
-        let width = window.innerWidth > 800 ? 800 : window.innerWidth - 40;
-        let height = window.innerHeight - 250;
-        mainCanvas.width = width;
-        mainCanvas.height = height;
-
-        let layers = []; // { id, canvas, ctx, visible: true, name }
-        let activeLayerId = null;
-
-        function createLayer(name = "Слой") {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            canvas.style.background = 'transparent';
-            const ctx = canvas.getContext('2d');
-
-            const layer = {
-                id: Date.now() + Math.random(),
-                canvas,
-                ctx,
-                visible: true,
-                name: name + " " + (layers.length + 1)
-            };
-
-            // Вставляем перед главным канвасом
-            canvasContainer.insertBefore(canvas, mainCanvas);
-
-            layers.push(layer);
-            activeLayerId = layer.id;
-            renderLayersPanel();
-            return layer;
-        }
-
-        function removeLayer(id) {
-            const layer = layers.find(l => l.id === id);
-            if (!layer || layers.length <= 1) return;
-            canvasContainer.removeChild(layer.canvas);
-            layers = layers.filter(l => l.id !== id);
-            if (activeLayerId === id) {
-                activeLayerId = layers[layers.length - 1].id;
-            }
-            renderLayersPanel();
-            composite();
-        }
-
-        function toggleVisibility(id) {
-            const layer = layers.find(l => l.id === id);
-            if (layer) {
-                layer.visible = !layer.visible;
-                layer.canvas.style.display = layer.visible ? 'block' : 'none';
-                renderLayersPanel();
-                composite();
-            }
-        }
-
-        function setActiveLayer(id) {
-            activeLayerId = id;
-            renderLayersPanel();
-        }
-
-        function moveLayerUp(id) {
-            const index = layers.findIndex(l => l.id === id);
-            if (index < layers.length - 1) {
-                [layers[index], layers[index + 1]] = [layers[index + 1], layers[index]];
-                updateLayerOrder();
-                renderLayersPanel();
-                composite();
-            }
-        }
-
-        function moveLayerDown(id) {
-            const index = layers.findIndex(l => l.id === id);
-            if (index > 0) {
-                [layers[index], layers[index - 1]] = [layers[index - 1], layers[index]];
-                updateLayerOrder();
-                renderLayersPanel();
-                composite();
-            }
-        }
-
-        function updateLayerOrder() {
-            layers.forEach(layer => {
-                canvasContainer.removeChild(layer.canvas);
-            });
-            layers.forEach(layer => {
-                if (layer.visible) {
-                    canvasContainer.insertBefore(layer.canvas, mainCanvas);
-                }
-            });
-        }
-
-        function composite() {
-            mainCtx.clearRect(0, 0, width, height);
-            // Главный канвас не нужен для композита — всё рисуется на отдельных слоях
-            // Но мы оставляем его для событий (он сверху всех)
-        }
-
-        function renderLayersPanel() {
-            layersList.innerHTML = '';
-            // Отображаем в обратном порядке (верхний слой сверху в списке)
-            [...layers].reverse().forEach(layer => {
-                const div = document.createElement('div');
-                div.className = 'layer-item' + (layer.id === activeLayerId ? ' active' : '');
-                
-                div.innerHTML = `
-                    <input type="checkbox" ${layer.visible ? 'checked' : ''} onchange="toggleVisibility(${layer.id})">
-                    <span onclick="setActiveLayer(${layer.id})" style="flex:1;cursor:pointer;">${layer.name}</span>
-                    <button class="small" onclick="moveLayerUp(${layer.id})">↑</button>
-                    <button class="small" onclick="moveLayerDown(${layer.id})">↓</button>
-                    <button class="small" onclick="removeLayer(${layer.id})">×</button>
-                `;
-                layersList.appendChild(div);
-            });
-        }
-
-        // === Рисование ===
         let drawing = false;
-        let tool = 'pen';
+        let tool = 'pen'; // 'pen' или 'eraser'
 
-        function getActiveCtx() {
-            const layer = layers.find(l => l.id === activeLayerId);
-            return layer ? layer.ctx : null;
-        }
+        // Адаптация размера холста под экран
+        canvas.width = window.innerWidth - 20;
+        canvas.height = window.innerHeight - 200;
 
         function startDrawing(e) {
             drawing = true;
@@ -185,24 +54,20 @@
 
         function stopDrawing() {
             drawing = false;
-            const ctx = getActiveCtx();
-            if (ctx) ctx.beginPath();
+            ctx.beginPath();
         }
 
         function draw(e) {
             if (!drawing) return;
-            const ctx = getActiveCtx();
-            if (!ctx) return;
 
             let x, y;
-            const rect = mainCanvas.getBoundingClientRect();
             if (e.touches) {
-                e.preventDefault();
-                x = e.touches[0].clientX - rect.left;
-                y = e.touches[0].clientY - rect.top;
+                e.preventDefault(); // Чтобы не скроллило при рисовании на мобильных
+                x = e.touches[0].clientX - canvas.offsetLeft;
+                y = e.touches[0].clientY - canvas.offsetTop;
             } else {
-                x = e.clientX - rect.left;
-                y = e.clientY - rect.top;
+                x = e.clientX - canvas.offsetLeft;
+                y = e.clientY - canvas.offsetTop;
             }
 
             ctx.lineWidth = sizeSlider.value;
@@ -221,43 +86,54 @@
             ctx.moveTo(x, y);
         }
 
-        // События на главном (прозрачном) канвасе
-        mainCanvas.addEventListener('mousedown', startDrawing);
-        mainCanvas.addEventListener('mouseup', stopDrawing);
-        mainCanvas.addEventListener('mousemove', draw);
-        mainCanvas.addEventListener('mouseout', stopDrawing);
+        // События для мыши
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseout', stopDrawing);
 
-        mainCanvas.addEventListener('touchstart', startDrawing);
-        mainCanvas.addEventListener('touchend', stopDrawing);
-        mainCanvas.addEventListener('touchmove', draw);
+        // События для тач-устройств
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchmove', draw);
 
-        // Инструменты
-        document.getElementById('pen').onclick = () => tool = 'pen';
-        document.getElementById('eraser').onclick = () => tool = 'eraser';
+        // Выбор инструментов
+        penBtn.onclick = () => tool = 'pen';
+        eraserBtn.onclick = () => tool = 'eraser';
 
-        document.getElementById('clear').onclick = () => {
-            const ctx = getActiveCtx();
-            if (ctx) ctx.clearRect(0, 0, width, height);
+        // Очистка холста
+        clearBtn.onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Экспорт в PNG
+        exportBtn.onclick = () => {
+            const link = document.createElement('a');
+            link.download = 'draw.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         };
 
-        // Добавление изображения на активный слой
-        addImageBtn.onclick = () => imageInput.click();
+        // === НОВАЯ ФУНКЦИЯ: Добавление изображения ===
+        addImageBtn.onclick = () => {
+            imageInput.click(); // Открываем выбор файла
+        };
 
         imageInput.onchange = (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            const ctx = getActiveCtx();
-            if (!ctx) return;
-
             const reader = new FileReader();
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    const scale = Math.max(width / img.width, height / img.height);
-                    const x = (width / 2) - (img.width / 2) * scale;
-                    const y = (height / 2) - (img.height / 2) * scale;
+                    // Отрисовываем изображение на холсте (растягиваем с сохранением пропорций)
+                    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                    const x = (canvas.width / 2) - (img.width / 2) * scale;
+                    const y = (canvas.height / 2) - (img.height / 2) * scale;
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем перед вставкой (можно убрать, если хочешь поверх старого рисунка)
                     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+                    // Сбрасываем input, чтобы можно было загрузить то же изображение повторно
                     imageInput.value = '';
                 };
                 img.src = event.target.result;
@@ -265,35 +141,9 @@
             reader.readAsDataURL(file);
         };
 
-        // Экспорт — рендерим всё на временный канвас
-        document.getElementById('export').onclick = () => {
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = width;
-            exportCanvas.height = height;
-            const exportCtx = exportCanvas.getContext('2d');
-
-            layers.forEach(layer => {
-                if (layer.visible) {
-                    exportCtx.drawImage(layer.canvas, 0, 0);
-                }
-            });
-
-            const link = document.createElement('a');
-            link.download = 'drawing_with_layers.png';
-            link.href = exportCanvas.toDataURL('image/png');
-            link.click();
-        };
-
-        // Добавление слоя
-        addLayerBtn.onclick = () => createLayer("Слой");
-
-        // Инициализация: создаём первый слой
-        createLayer("Фон");
-
-        // Адаптация под размер экрана
-        window.addEventListener('resize', () => {
-            // В реальном приложении нужно пересчитывать и ресайзить все слои — упрощённо не делаем
-        });
+        // Начальные настройки
+        colorPicker.value = '#000000';
+        tool = 'pen';
     </script>
 </body>
 </html>
