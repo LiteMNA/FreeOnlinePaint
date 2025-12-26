@@ -1,10 +1,109 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Бесплатная Рисовалка Онлайн</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мой рисовальный сайт</title>
+    <style>
+        body { margin: 0; background: #f0f0f0; font-family: sans-serif; }
+        #toolbar { background: #fff; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #canvas { display: block; background: white; margin: 10px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); touch-action: none; }
+        button, input { margin: 5px; padding: 8px; }
+    </style>
 </head>
 <body>
-    <h1>🎨 Бесплатная Рисовалка Онлайн</h1>
-    <p>Сайт работает!</p>
+    <div id="toolbar">
+        <button id="pen">Карандаш</button>
+        <button id="eraser">Ластик</button>
+        <button id="clear">Очистить</button>
+        <br>
+        Цвет: <input type="color" id="colorPicker" value="#000000">
+        Толщина: <input type="range" id="size" min="1" max="50" value="5">
+        <br>
+        <button id="export">Экспорт в PNG</button>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const sizeSlider = document.getElementById('size');
+        const penBtn = document.getElementById('pen');
+        const eraserBtn = document.getElementById('eraser');
+        const clearBtn = document.getElementById('clear');
+        const exportBtn = document.getElementById('export');
+
+        let drawing = false;
+        let tool = 'pen'; // 'pen' или 'eraser'
+
+        // Адаптация под touch (для iPhone)
+        canvas.width = window.innerWidth - 20;
+        canvas.height = window.innerHeight - 200;
+
+        function startDrawing(e) {
+            drawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+
+            let x, y;
+            if (e.touches) { // Для touch
+                x = e.touches[0].clientX - canvas.offsetLeft;
+                y = e.touches[0].clientY - canvas.offsetTop;
+            } else { // Для mouse (если на компе тестируешь)
+                x = e.clientX - canvas.offsetLeft;
+                y = e.clientY - canvas.offsetTop;
+            }
+
+            ctx.lineWidth = sizeSlider.value;
+            ctx.lineCap = 'round';
+
+            if (tool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out'; // Ластик
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = colorPicker.value;
+            }
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // События
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchmove', draw);
+
+        penBtn.onclick = () => tool = 'pen';
+        eraserBtn.onclick = () => tool = 'eraser';
+
+        clearBtn.onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        exportBtn.onclick = () => {
+            const link = document.createElement('a');
+            link.download = 'draw.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+
+        // Начальный цвет и инструмент
+        colorPicker.value = '#000000';
+        tool = 'pen';
+    </script>
 </body>
-</html>
+- [ ] </html>
