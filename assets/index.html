@@ -1,1 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Paint</title>
+    <style>
+        body { margin: 0; background: #f0f0f0; font-family: sans-serif; }
+        #toolbar { background: #fff; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        #canvas { display: block; background: white; margin: 10px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); touch-action: none; }
+        button, input { margin: 5px; padding: 8px; }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <button id="pen">Карандаш</button>
+        <button id="eraser">Ластик</button>
+        <button id="clear">Очистить</button>
+        <button id="addImage">Добавить изображение</button>
+        <br>
+        Цвет: <input type="color" id="colorPicker" value="#000000">
+        Толщина: <input type="range" id="size" min="1" max="50" value="5">
+        <br>
+        <button id="export">Экспорт в PNG</button>
+    </div>
+    <canvas id="canvas" width="800" height="600"></canvas>
 
+    <!-- Скрытый input для выбора файла -->
+    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const sizeSlider = document.getElementById('size');
+        const penBtn = document.getElementById('pen');
+        const eraserBtn = document.getElementById('eraser');
+        const clearBtn = document.getElementById('clear');
+        const exportBtn = document.getElementById('export');
+        const addImageBtn = document.getElementById('addImage');
+        const imageInput = document.getElementById('imageInput');
+
+        let drawing = false;
+        let tool = 'pen'; // 'pen' или 'eraser'
+
+        // Адаптация размера холста под экран
+        canvas.width = window.innerWidth - 20;
+        canvas.height = window.innerHeight - 200;
+
+        function startDrawing(e) {
+            drawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            drawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+
+            let x, y;
+            if (e.touches) {
+                e.preventDefault(); // Чтобы не скроллило при рисовании на мобильных
+                x = e.touches[0].clientX - canvas.offsetLeft;
+                y = e.touches[0].clientY - canvas.offsetTop;
+            } else {
+                x = e.clientX - canvas.offsetLeft;
+                y = e.clientY - canvas.offsetTop;
+            }
+
+            ctx.lineWidth = sizeSlider.value;
+            ctx.lineCap = 'round';
+
+            if (tool === 'eraser') {
+                ctx.globalCompositeOperation = 'destination-out';
+            } else {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = colorPicker.value;
+            }
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // События для мыши
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // События для тач-устройств
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchmove', draw);
+
+        // Выбор инструментов
+        penBtn.onclick = () => tool = 'pen';
+        eraserBtn.onclick = () => tool = 'eraser';
+
+        // Очистка холста
+        clearBtn.onclick = () => ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Экспорт в PNG
+        exportBtn.onclick = () => {
+            const link = document.createElement('a');
+            link.download = 'draw.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+
+        // === НОВАЯ ФУНКЦИЯ: Добавление изображения ===
+        addImageBtn.onclick = () => {
+            imageInput.click(); // Открываем выбор файла
+        };
+
+        imageInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Отрисовываем изображение на холсте (растягиваем с сохранением пропорций)
+                    const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                    const x = (canvas.width / 2) - (img.width / 2) * scale;
+                    const y = (canvas.height / 2) - (img.height / 2) * scale;
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем перед вставкой (можно убрать, если хочешь поверх старого рисунка)
+                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+                    // Сбрасываем input, чтобы можно было загрузить то же изображение повторно
+                    imageInput.value = '';
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Начальные настройки
+        colorPicker.value = '#000000';
+        tool = 'pen';
+    </script>
+</body>
+</html>
