@@ -3,36 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mini Paint with Layers</title>
+    <title>Mini Paint Pro + Zoom HUD</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div class="toolbar">
-        <div class="tools">
+        <div class="tool-group">
             <button id="pencilBtn" class="active">Карандаш</button>
             <button id="eraserBtn">Ластик</button>
             <button id="clearBtn">Очистить</button>
-            <button id="addImageBtn">Добавить фото</button>
-            <input type="file" id="fileInput" hidden accept="image/*">
         </div>
 
-        <div class="settings">
+        <div class="tool-group">
             <label>Цвет: <input type="color" id="colorPicker" value="#000000"></label>
             <label>Толщина: <input type="range" id="sizePicker" min="1" max="50" value="5"></label>
         </div>
 
-        <button id="exportBtn" class="export-btn">Экспорт в PNG</button>
+        <div class="tool-group canvas-size-settings">
+            <input type="number" id="canvasWidth" value="512">
+            <span>x</span>
+            <input type="number" id="canvasHeight" value="512">
+            <button id="applySizeBtn">ОК</button>
+        </div>
+
+        <div class="tool-group zoom-controls">
+            <button id="zoomOutBtn">-</button>
+            <button id="zoomInBtn">+</button>
+        </div>
+
+        <div class="tool-group">
+            <button id="addImageBtn">Фото</button>
+            <input type="file" id="fileInput" hidden accept="image/*">
+            <button id="exportBtn" class="export-btn">Экспорт</button>
+        </div>
     </div>
 
     <div class="main-container">
-        <div id="canvas-container">
-            </div>
+        <div id="viewport">
+            <div id="zoom-hud">100%</div>
+            
+            <div id="canvas-wrapper">
+                </div>
+        </div>
 
         <div class="layers-panel">
             <h3>Слои</h3>
             <div id="layersList"></div>
-            <button id="addLayerBtn">+ Добавить слой</button>
+            <button id="addLayerBtn">+ Добавить</button>
         </div>
     </div>
 
