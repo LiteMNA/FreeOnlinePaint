@@ -1,40 +1,72 @@
+/* ... предыдущие стили остаются ... */
+
 body {
     font-family: sans-serif;
     margin: 0;
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background-color: #f0f0f0;
+    background-color: #2c2c2c;
+    color: #ccc;
+    overflow: hidden;
 }
 
 .toolbar {
-    background: #fff;
+    background: #333;
     padding: 10px;
     display: flex;
-    justify-content: space-around;
-    align-items: center;
-    border-bottom: 1px solid #ccc;
-    flex-wrap: wrap;
     gap: 10px;
+    border-bottom: 1px solid #111;
+    flex-wrap: wrap;
+}
+
+.tool-group {
+    background: #444;
+    padding: 5px 10px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .main-container {
     display: flex;
     flex: 1;
-    overflow: hidden;
-}
-
-#canvas-container {
     position: relative;
-    flex: 1;
-    background-color: #fff;
-    margin: 20px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    overflow: hidden;
-    cursor: crosshair;
 }
 
-/* Наложение холстов друг на друга */
+#viewport {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background: #1a1a1a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* СТИЛЬ ДЛЯ ТЕКСТА ЗУМА */
+#zoom-hud {
+    position: fixed; /* Чтобы не дергался при скролле холста */
+    top: 50%;
+    left: 45%; /* Смещено чуть левее центра из-за панели слоев */
+    transform: translate(-50%, -50%);
+    color: #888888; /* Серый цвет */
+    font-size: 48px;
+    font-weight: bold;
+    pointer-events: none; /* Чтобы не мешал кликать по холсту */
+    opacity: 0; /* Изначально невидим */
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+#canvas-wrapper {
+    position: relative;
+    background: white;
+    transform-origin: center center;
+    box-shadow: 0 0 30px rgba(0,0,0,0.7);
+}
+
 canvas {
     position: absolute;
     top: 0;
@@ -43,42 +75,23 @@ canvas {
 
 .layers-panel {
     width: 200px;
-    background: #e8e8e8;
-    border-left: 1px solid #ccc;
+    background: #252525;
     padding: 10px;
-    display: flex;
-    flex-direction: column;
+    border-left: 1px solid #111;
 }
 
 .layer-item {
-    background: #fff;
+    padding: 10px;
+    background: #333;
     margin-bottom: 5px;
-    padding: 8px;
-    border: 1px solid #bbb;
+    border-radius: 4px;
     cursor: pointer;
-    display: flex;
-    justify-content: space-between;
 }
 
 .layer-item.active {
-    border: 2px solid #007bff;
-    background: #e7f1ff;
-}
-
-button {
-    padding: 8px 12px;
-    cursor: pointer;
-    border: 1px solid #ccc;
-    background: #fff;
-    border-radius: 4px;
-}
-
-button.active {
-    background: #007bff;
+    background: #4a90e2;
     color: white;
 }
 
-.export-btn {
-    background: #28a745;
-    color: white;
-}
+input[type="number"] { width: 50px; background: #111; color: #fff; border: 1px solid #555; }
+button { cursor: pointer; border: none; padding: 5px 10px; border-radius: 3px; }
