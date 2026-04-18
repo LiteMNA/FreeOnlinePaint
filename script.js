@@ -1,156 +1,140 @@
-const container = document.getElementById('canvas-container');
+const wrapper = document.getElementById('canvas-wrapper');
 const layersList = document.getElementById('layersList');
-const addLayerBtn = document.getElementById('addLayerBtn');
-const colorPicker = document.getElementById('colorPicker');
-const sizePicker = document.getElementById('sizePicker');
-const pencilBtn = document.getElementById('pencilBtn');
-const eraserBtn = document.getElementById('eraserBtn');
-const clearBtn = document.getElementById('clearBtn');
-const exportBtn = document.getElementById('exportBtn');
-const fileInput = document.getElementById('fileInput');
-const addImageBtn = document.getElementById('addImageBtn');
+const canvasWidthInput = document.getElementById('canvasWidth');
+const canvasHeightInput = document.getElementById('canvasHeight');
+const zoomHud = document.getElementById('zoom-hud');
 
 let layers = [];
 let activeLayerIndex = 0;
 let isDrawing = false;
 let currentTool = 'pencil';
+let scale = 1;
+let zoomTimeout; // Для таймера исчезновения текста
 
-// Инициализация первого слоя
 function init() {
-    addLayer();
-    resizeCanvases();
+    createLayer();
+    updateCanvasSize();
 }
 
-function addLayer() {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Устанавливаем размер холста
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
-    
-    const layer = { canvas, ctx, id: Date.now() };
-    layers.push(layer);
-    container.appendChild(canvas);
-    
-    setActiveLayer(layers.length - 1);
-    renderLayersList();
-}
-
-function renderLayersList() {
-    layersList.innerHTML = '';
-    layers.slice().reverse().forEach((layer, index) => {
-        const actualIndex = layers.length - 1 - index;
-        const div = document.createElement('div');
-        div.className = `layer-item ${actualIndex === activeLayerIndex ? 'active' : ''}`;
-        div.innerText = `Слой ${actualIndex + 1}`;
-        div.onclick = () => setActiveLayer(actualIndex);
-        layersList.appendChild(div);
+// Изменение размера
+function updateCanvasSize() {
+    const w = parseInt(canvasWidthInput.value) || 512;
+    const h = parseInt(canvasHeightInput.value) || 512;
+    wrapper.style.width = w + 'px';
+    wrapper.style.height = h + 'px';
+    layers.forEach(l => {
+        const data = l.ctx.getImageData(0,0, l.canvas.width, l.canvas.height);
+        l.canvas.width = w;
+        l.canvas.height = h;
+        l.ctx.putImageData(data, 0, 0);
     });
 }
 
-function setActiveLayer(index) {
-    activeLayerIndex = index;
-    renderLayersList();
+// ЗУМ С ПОЯВЛЯЮЩИМСЯ ТЕКСТОМ
+function updateZoom(delta) {
+    scale = Math.min(Math.max(0.1, scale + delta), 5);
+    wrapper.style.transform = `scale(${scale})`;
+
+    // Показываем серый текст
+    zoomHud.innerText = Math.round(scale * 100) + '%';
+    zoomHud.style.opacity = '1';
+
+    // Убираем старый таймер и ставим новый, чтобы текст исчез через 1 сек
+    clearTimeout(zoomTimeout);
+    zoomTimeout = setTimeout(() => {
+        zoomHud.style.opacity = '0';
+    }, 1000);
+}
+
+function getCoords(e) {
+    const rect = wrapper.getBoundingClientRect();
+    const x = ((e.clientX || (e.touches && e.touches[0].clientX)) - rect.left) / scale;
+    const y = ((e.clientY || (e.touches && e.touches[0].clientY)) - rect.top) / scale;
+    return { x, y };
 }
 
 // Рисование
 function startDrawing(e) {
+    if (e.button && e.button !== 0) return;
     isDrawing = true;
-    draw(e);
-}
-
-function stopDrawing() {
-    isDrawing = false;
+    const { x, y } = getCoords(e);
     layers[activeLayerIndex].ctx.beginPath();
+    layers[activeLayerIndex].ctx.moveTo(x, y);
 }
 
 function draw(e) {
     if (!isDrawing) return;
+    const { x, y } = getCoords(e);
     const { ctx } = layers[activeLayerIndex];
-    const rect = container.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
 
-    ctx.lineWidth = sizePicker.value;
+    ctx.lineWidth = document.getElementById('sizePicker').value;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
 
     if (currentTool === 'eraser') {
         ctx.globalCompositeOperation = 'destination-out';
     } else {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.strokeStyle = colorPicker.value;
+        ctx.strokeStyle = document.getElementById('colorPicker').value;
     }
 
     ctx.lineTo(x, y);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
 }
 
-// Слушатели событий
-container.addEventListener('mousedown', startDrawing);
-container.addEventListener('mousemove', draw);
-window.addEventListener('mouseup', stopDrawing);
+// Инструменты и слои
+function createLayer() {
+    const canvas = document.createElement('canvas');
+    canvas.width = parseInt(canvasWidthInput.value);
+    canvas.height = parseInt(canvasHeightInput.value);
+    const ctx = canvas.getContext('2d');
+    layers.push({ canvas, ctx });
+    wrapper.appendChild(canvas);
+    setActiveLayer(layers.length - 1);
+}
 
-// Тач-события для мобильных
-container.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); });
-container.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
-container.addEventListener('touchend', stopDrawing);
+function setActiveLayer(i) {
+    activeLayerIndex = i;
+    renderLayersUI();
+}
 
-// Инструменты
-pencilBtn.onclick = () => { currentTool = 'pencil'; pencilBtn.classList.add('active'); eraserBtn.classList.remove('active'); };
-eraserBtn.onclick = () => { currentTool = 'eraser'; eraserBtn.classList.add('active'); pencilBtn.classList.remove('active'); };
-
-clearBtn.onclick = () => {
-    if(confirm('Очистить текущий слой?')) {
-        layers[activeLayerIndex].ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
-    }
-};
-
-addLayerBtn.onclick = addLayer;
-
-// Добавление изображения
-addImageBtn.onclick = () => fileInput.click();
-fileInput.onchange = (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-            layers[activeLayerIndex].ctx.drawImage(img, 0, 0, container.clientWidth, container.clientHeight);
-        };
-        img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-};
-
-// Экспорт (склеивание всех слоев)
-exportBtn.onclick = () => {
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = container.clientWidth;
-    finalCanvas.height = container.clientHeight;
-    const finalCtx = finalCanvas.getContext('2d');
-
-    // Белый фон
-    finalCtx.fillStyle = '#ffffff';
-    finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-
-    // Рисуем все слои по порядку
-    layers.forEach(layer => {
-        finalCtx.drawImage(layer.canvas, 0, 0);
+function renderLayersUI() {
+    layersList.innerHTML = '';
+    layers.slice().reverse().forEach((l, i) => {
+        const idx = layers.length - 1 - i;
+        const item = document.createElement('div');
+        item.className = `layer-item ${idx === activeLayerIndex ? 'active' : ''}`;
+        item.innerText = `Слой ${idx + 1}`;
+        item.onclick = () => setActiveLayer(idx);
+        layersList.appendChild(item);
     });
+}
 
+// События
+wrapper.addEventListener('mousedown', startDrawing);
+window.addEventListener('mousemove', draw);
+window.addEventListener('mouseup', () => isDrawing = false);
+
+document.getElementById('zoomInBtn').onclick = () => updateZoom(0.1);
+document.getElementById('zoomOutBtn').onclick = () => updateZoom(-0.1);
+document.getElementById('addLayerBtn').onclick = createLayer;
+document.getElementById('applySizeBtn').onclick = updateCanvasSize;
+document.getElementById('pencilBtn').onclick = () => { currentTool = 'pencil'; };
+document.getElementById('eraserBtn').onclick = () => { currentTool = 'eraser'; };
+
+// Экспорт
+document.getElementById('exportBtn').onclick = () => {
+    const final = document.createElement('canvas');
+    final.width = parseInt(canvasWidthInput.value);
+    final.height = parseInt(canvasHeightInput.value);
+    const fCtx = final.getContext('2d');
+    fCtx.fillStyle = "white";
+    fCtx.fillRect(0,0, final.width, final.height);
+    layers.forEach(l => fCtx.drawImage(l.canvas, 0, 0));
     const link = document.createElement('a');
     link.download = 'art.png';
-    link.href = finalCanvas.toDataURL();
+    link.href = final.toDataURL();
     link.click();
 };
 
-// Адаптивность размера
-function resizeCanvases() {
-    // В реальном приложении здесь нужно сохранять данные канваса перед ресайзом, 
-    // так как изменение ширины/высоты очищает холст.
-}
-
-window.onload = init;
+init();
